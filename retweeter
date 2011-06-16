@@ -1,0 +1,152 @@
+#!/usr/bin/perl
+use strict;
+
+use AE;
+use CHI;
+use FindBin;
+use Config::Any;
+use Log::Handler;
+use Daemon::Generic;
+
+use Net::Twitter;
+use AnyEvent::Twitter::Stream;
+
+use Data::Printer;
+
+my $CFG;  # Script Configuration
+          # Store Twitter OAuth Creds
+
+my $L = Log::Handler->new();
+
+my $CACHE = CHI->new(
+    driver => 'File',
+    root_dir => $FindBin::Bin . '/tweet_cache',
+    expires_in => '4 weeks',
+);
+
+
+# Start The Daemon
+newdaemon(
+    pidbase        => $FindBin::Bin . $0,
+);
+
+
+sub gd_preconfig {
+    my ($self) = @_;
+
+    $L->add(
+        file => {
+            filename => $FindBin::Bin . "/$0.log",
+            maxlevel => 7,
+            minlevel => 0,
+            message_layout => '%T [%L] [%P] %m',
+        }
+    );
+
+    if ($self->{gd_foreground}) {
+        $L->add(screen => { maxlevel => "debug" }); 
+    }
+
+    $L->info("Loading configuration: " . $self->{configfile});
+    my $c_any = Config::Any->load_files({files => [$self->{configfile}], use_ext=>1 });
+
+
+    for (@$c_any) {
+        my ($filename, $config) = %$_;
+        $CFG = $config;
+    }
+
+    return ();
+};
+
+
+sub gd_run { 
+
+    ## Used to send RT
+    my $nt = Net::Twitter->new(
+          traits   => [qw/OAuth API::REST/],
+          consumer_key        => $CFG->{consumer_key},
+          consumer_secret     => $CFG->{consumer_secret},
+          access_token        => $CFG->{access_token},
+          access_token_secret => $CFG->{access_token_secret},
+    );
+
+    while (1==1) {
+        $L->debug("Begin processing stream");
+        process_stream($nt); 
+        $L->debug("Stream ended");
+    }
+};
+
+
+sub process_stream {
+    my $nt = shift;  # Net Twitter Object to send RT
+
+    my $retweeter_identity = $nt->verify_credentials();
+
+    # Define Event condition
+    my $done = AE::cv;
+
+    my $listener = AnyEvent::Twitter::Stream->new(
+        consumer_key     => $CFG->{consumer_key},
+        consumer_secret  => $CFG->{consumer_secret},
+        token            => $CFG->{access_token},
+        token_secret     => $CFG->{access_token_secret},
+        method           => "filter",
+        follow           => $CFG->{follow},
+        timeout          => 45,
+        on_tweet => sub {
+            my $tweet = shift;
+
+            if ($CACHE->get($tweet->{id}) || 
+                    (
+                     $tweet->{retweeted_status}{id} && 
+                         (
+                          $CACHE->get($tweet->{retweeted_status}{id}) ||
+                          $tweet->{retweeted_status}{user}{id} == $retweeter_identity->{id}
+                         )
+                    ) ||
+                    $tweet->{user}{id} == $retweeter_identity->{id} 
+            ) {
+                # Check so that we only retweet once
+                # and that we don't retweet our own
+                # tweets
+                $L->debug("DUPLICATE NOT RETWEETED: $tweet->{id}: $tweet->{user}{screen_name}: $tweet->{text}"); 
+            }
+            else { 
+                $L->notice("$tweet->{id}: $tweet->{user}{screen_name}: $tweet->{text}");
+                eval {
+                    $nt->retweet($tweet->{id});
+                    $CACHE->set($tweet->{id},1);
+                };
+                if ( my $err = $@ ) {
+                    $L->error( "HTTP Response Code: ", $err->code);
+                    $L->error( "HTTP Message......: ", $err->message);
+                    $L->error( "Twitter error.....: ", $err->error);
+                }
+            }
+
+        },
+        on_keepalive => sub {
+            $L->debug("ping");
+        },
+        on_delete => sub {
+            # do nothing 
+        },
+        on_error => sub {
+            $L->error("@_");
+            $done->send;
+        },
+        on_eof => sub {
+            $L->warn("End of stream");
+            $done->send;
+        },
+    );
+
+    $done->recv;
+
+} 
+
+
+
+

@@ -1,0 +1,52 @@
+# twitter-tools
+Command line tools written in Perl for Twitter
+
+## Tools
+
+### retweeter
+A daemon that can be configured with [Config::Any](http://search.cpan.org/perldoc?Config::Any). 
+It will retweet conversations for any users you define. 
+
+Sample config file using YAML:
+
+    consumer_key: XXXXXXXXXXXXXXXXXXXXXX
+    consumer_secret: XXXXXXXXXXXXXWXXXXXXXXXXXXXXXXXXXXXXXXXX
+    access_token: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    access_token_secret: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    follow: 12345678,23456789,87654321   
+
+The ids used by follow are the userids returned by Twitter. You can lookup these
+ids with twitterctl.
+
+
+### twitterctl
+This is simply a command line tool for [Net::Twitter](http://search.cpan.org/perldoc?Net::Twitter).
+It will run any method of [Net::Twitter](http://search.cpan.org/perldoc?Net::Twitter) and by
+default dump the response with [Data::Dumper](http://search.cpan.org/perldoc?Data::Dumper).
+You can configure the output to be anything [Any::Renderer](http://search.cpan.org/perldoc?Any::Renderer) 
+can handle. 
+
+The same configuration file can be used from retweeter. The follow option will not be used.
+
+Examples:
+
+    ./twitterctl --config-file ./myOAuthConfig.yaml --followers
+    ./twitterctl --config-file ./myOAuthConfig.yaml --lookup-users --screen-name slashdot
+    ./twitterctl --config-file ./myOAuthConfig.yaml --followers --output-filter Data::Printer
+
+
+### The tlib directory
+This is a kludge.  I've requested that a few changes for Getopt::Lucid and Any::Renderer 
+be applied to their respective master branches.  Until then I have included the changes
+here.  Not at all the best solution, but it works.  If the changes do not get accepted
+I will look to change this.
+
+
+## TODO
+A LOT!
+
+* Setup a Makefile.PL so that dependencies are automaticallly installed
+* More documentation
+* Create tests
+* More tools
+ * Script that will add friends followed by another account 
