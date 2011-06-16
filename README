@@ -28,6 +28,9 @@ can handle.
 
 The same configuration file can be used from retweeter. The follow option will not be used.
 
+On the command line change any underscores '_' to dashes '-'. 
+    lookup_users becomes lookup-users
+
 Examples:
 
     ./twitterctl --config-file ./myOAuthConfig.yaml --followers
