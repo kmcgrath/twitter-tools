@@ -18,16 +18,13 @@ use strict;
 use warnings;
 
 use FindBin;
-use lib $FindBin::Bin . '/tlib';     # Modified CPAN libs needed for now
+use lib $FindBin::Bin . '/../tlib';     # Modified CPAN libs needed for now
 
 use Log::Handler;
 use Net::Twitter;
 use Config::Any;
 use Any::Renderer;
 use Getopt::Lucid;
-
-use Data::Printer;
-use Data::Dumper;
 
 ### Define some hashrefs for quick lookups. ###
 my $uniq_param   = {};    # Force unique command line options
@@ -65,7 +62,12 @@ $uniq_param->{"retweets-allowed"} = Getopt::Lucid::Switch("retweets-allowed");
 for my $method ( $nt->meta->get_all_methods ) {
     my $mname = $method->name;
     $mname =~ s/_/-/g;
-    if (!$uniq_param->{$mname} && $method->{base_url_method} && $method->name !~ /^_/ && $mname !~ /^[A-Z]+$/) {
+    if (
+        !$uniq_param->{$mname} 
+        && $method->{base_url_method} 
+        && $method->name !~ /^_/ 
+        && $mname !~ /^[A-Z]+$/
+    ) {
         $uniq_param->{$mname} = Getopt::Lucid::Switch($mname)->required_or("action");
         $uniq_method->{$mname} = 1;
         _create_spec($mname, 'Switch', $_) for @{$method->{booleans}};
@@ -82,6 +84,9 @@ for my $method ( $nt->meta->get_all_methods ) {
         }
     }
 }
+
+
+#p($uniq_param);
 
 
 ### Get and set command line options
@@ -142,6 +147,8 @@ exit(0);
 sub _create_spec {
     my ($method_name, $spec_type, $param_name) = @_;    
     $param_name =~ s/_/-/g;
+    $param_name =~ s/\[\]//g;
+    return unless $param_name =~ /^[\w-]+$/;
     unless ($uniq_param->{$param_name}) {
         no strict 'refs';
         $uniq_param->{$param_name} = &{"Getopt::Lucid::$spec_type"}($param_name);

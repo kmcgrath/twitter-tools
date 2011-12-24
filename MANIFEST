@@ -1,9 +1,15 @@
 Build.PL
 Changes
-lib/twittertools.pm
 MANIFEST			This list of files
 README
+script/retweeter
+script/twitterctl
 t/00-load.t
+t/boilerplate.t
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
+tlib/Any/Renderer.pm
+tlib/Getopt/Lucid.pm
+tlib/Getopt/Lucid.pod
+tlib/Getopt/Lucid/Exception.pm
