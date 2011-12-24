@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/bin/env perl
 #===============================================================================
 #
 #         FILE:  twitterctl
@@ -9,7 +9,7 @@
 #
 #  DESCRIPTION: A command line interface for Net::Twitter
 #
-#       AUTHOR:  Kevin McGrath (kmcgrath@baknet.com),
+#       AUTHOR:  Kevin McGrath (kevin@baknet.com),
 #      VERSION:  0.01
 #
 #===============================================================================
