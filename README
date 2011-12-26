@@ -20,36 +20,23 @@ ids with twitterctl.
 
 
 ### twitterctl
-This is simply a command line tool for [Net::Twitter](http://search.cpan.org/perldoc?Net::Twitter).
+This is a command line tool for [Net::Twitter](http://search.cpan.org/perldoc?Net::Twitter).
 It will run any method of [Net::Twitter](http://search.cpan.org/perldoc?Net::Twitter) and by
 default dump the response with [Data::Dumper](http://search.cpan.org/perldoc?Data::Dumper).
 You can configure the output to be anything [Any::Renderer](http://search.cpan.org/perldoc?Any::Renderer) 
 can handle. 
 
-The same configuration file can be used from retweeter. The follow option will not be used.
+The same configuration file can be used from retweeter. The follow config option will not be used.
 
-On the command line change any underscores '_' to dashes '-'. 
-    lookup_users becomes lookup-users
+On the command line change any underscores '_' to dashes '-' for method parameters. 
+    screen_name becomes screen-name
 
 Examples:
 
-    ./twitterctl --config-file ./myOAuthConfig.yaml --followers
-    ./twitterctl --config-file ./myOAuthConfig.yaml --lookup-users --screen-name slashdot
-    ./twitterctl --config-file ./myOAuthConfig.yaml --followers --output-filter Data::Printer
-
-
-### The tlib directory
-This is a kludge.  I've requested that a few changes for Getopt::Lucid and Any::Renderer 
-be applied to their respective master branches.  Until then I have included the changes
-here.  Not at all the best solution, but it works.  If the changes do not get accepted
-I will look to change this.
+    ./twitterctl followers --config-file ./myOAuthConfig.yaml
+    ./twitterctl lookup_users --config-file ./myOAuthConfig.yaml --screen-name slashdot
+    ./twitterctl followers --config-file ./myOAuthConfig.yaml --output-filter Data::Printer
 
 
 ## TODO
 A LOT!
-
-* Setup a Makefile.PL so that dependencies are automaticallly installed
-* More documentation
-* Create tests
-* More tools
- * Script that will add friends followed by another account 
