@@ -16,9 +16,14 @@
    "prereqs" : {
       "build" : {
          "requires" : {
+            "AE" : 0,
             "Any::Renderer" : "1.015_01",
+            "AnyEvent::Twitter::Stream" : 0,
+            "CHI" : 0,
             "Config::Any" : 0,
-            "Getopt::Lucid" : 0,
+            "Daemon::Generic" : 0,
+            "Data::Printer" : 0,
+            "FindBin" : 0,
             "Log::Handler" : 0,
             "Net::Twitter" : 0,
             "Test::More" : 0
