@@ -3,7 +3,7 @@ abstract: Command line tools for Net::Twitter
 author:
   - 'Kevin McGrath <kevin@baknet.com>'
 build_requires:
-  Any::Renderer: 0
+  Any::Renderer: 1.015_01
   Config::Any: 0
   Getopt::Lucid: 0
   Log::Handler: 0
@@ -17,7 +17,7 @@ meta-spec:
   version: 1.4
 name: twitter-tools
 requires:
-  perl: 5.006
+  perl: 5.008
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.01
+version: 0.02

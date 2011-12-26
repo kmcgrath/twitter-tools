@@ -16,7 +16,7 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "Any::Renderer" : 0,
+            "Any::Renderer" : "1.015_01",
             "Config::Any" : 0,
             "Getopt::Lucid" : 0,
             "Log::Handler" : 0,
@@ -26,7 +26,7 @@
       },
       "runtime" : {
          "requires" : {
-            "perl" : "5.006"
+            "perl" : "5.008"
          }
       }
    },
@@ -36,5 +36,5 @@
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "0.01"
+   "version" : "0.02"
 }

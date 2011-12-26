@@ -18,18 +18,18 @@ use strict;
 use warnings;
 
 use FindBin;
-use lib $FindBin::Bin . '/../tlib';     # Modified CPAN libs needed for now
 
 use Log::Handler;
 use Net::Twitter;
 use Config::Any;
 use Any::Renderer;
-use Getopt::Lucid;
+use Getopt::Long;
 
 ### Define some hashrefs for quick lookups. ###
-my $uniq_param   = {};    # Force unique command line options
-my $param_method = {};    # map parameters to the methods they belong to
-my $uniq_method  = {};    # keep a list of unique methods
+my $uniq_param    = {};    # Force unique command line options
+my $param_method  = {};    # map parameters to the methods they belong to
+my $uniq_method   = {};    # keep a list of unique methods
+my $method_params = {};
 
 
 ### Create a Net::Twitter object now so that we have access ###
@@ -43,64 +43,53 @@ my $nt = Net::Twitter->new(
 );
 
   
-### Use Getopt::Lucid to read in all command line options.  ###
-### We just need to define $opt here so we can build a      ###
-### dynamic sub that references it for option validation    ###
-my $opt;
+# Option HashRef
+my $opt = {
+    'config-file' => undef,
+    'output-format' => 'Data::Dumper',
+};
+
+#Option Definitions
+my @opt_defs = (
+    'config-file|config_file=s',
+    'output-format|output_format:s',
+);
 
 
-### Set script specific configuration; 
-$uniq_param->{"config-file"}   = Getopt::Lucid::Param("config-file");
-$uniq_param->{"output-format"} = Getopt::Lucid::Param("output-format")->default('Data::Dumper');
 
-### This is a hack. retweets is both a method and a param  ###
-### We will make a retweets_allowed for the param          ###
-$uniq_param->{"retweets-allowed"} = Getopt::Lucid::Switch("retweets-allowed");
-
-### Find all Net::Twitter methods used to interact with    ###
-### Twitter and make them command line options             ###
+# Find all Net::Twitter methods used to interact with twitter
 for my $method ( $nt->meta->get_all_methods ) {
     my $mname = $method->name;
-    $mname =~ s/_/-/g;
     if (
         !$uniq_param->{$mname} 
         && $method->{base_url_method} 
         && $method->name !~ /^_/ 
         && $mname !~ /^[A-Z]+$/
     ) {
-        $uniq_param->{$mname} = Getopt::Lucid::Switch($mname)->required_or("action");
         $uniq_method->{$mname} = 1;
-        _create_spec($mname, 'Switch', $_) for @{$method->{booleans}};
-        _create_spec($mname, 'Param', $_)  for @{$method->{params}};
-        if (@{$method->{required}}) {
-             my @reqs = ();
-             foreach my $req_name (@{$method->required}) {
-                 if ($req_name) {
-                     $req_name =~ s/_/-/g;
-                     push @reqs, $req_name;
-                 }
-             }
-             $uniq_param->{$mname}->needs(@reqs);
-        }
     }
 }
 
 
-#p($uniq_param);
+my $requested_method = shift @ARGV;
+
+die unless $uniq_method->{$requested_method};
+
+my $method = $nt->meta->get_method($requested_method);
+
+
+_create_spec('Switch', $_) for @{$method->{booleans}};
+_create_spec('Param', $_)  for @{$method->{params}};
 
 
 ### Get and set command line options
-$opt = Getopt::Lucid->getopt([values %$uniq_param]);
-
-
-### Get all options and their values;
-my %all_options = $opt->options;
+GetOptions($opt,@opt_defs);
 
 
 ### Process script specific options
-my $r = Any::Renderer->new(delete $all_options{'output-format'});
+my $r = Any::Renderer->new(delete $opt->{'output-format'});
 
-if (my $config_file = delete $all_options{'config-file'}) {
+if (my $config_file = delete $opt->{'config-file'}) {
     my $c_any = Config::Any->load_files({files => [$config_file], use_ext=>1 });
 
     my $CFG;
@@ -117,53 +106,35 @@ if (my $config_file = delete $all_options{'config-file'}) {
 }
 
 
-### Identify the method to run and pass any other          ###
-### parameters needed                                      ###
-my $run_method = '';
 my $run_param = {};
-while (my ($key,$value)  = each(%all_options) ) {
-    if ($uniq_method->{$key} && $value) {
-        $key =~ s/-/_/g;
-        $run_method = $key;
-    }
-    else {
-        $key =~ s/-/_/g;
-        $key = 'retweets' if $key eq 'retweets-allowed';  # I know, UGLY
-        $run_param->{$key} = $value if $value;
-    }
+while (my ($key,$value)  = each(%$opt) ) {
+    $key =~ s/-/_/g;
+    $run_param->{$key} = $value if $value;
 }
 
-my $result = $nt->$run_method($run_param);
+my $result = $nt->$requested_method($run_param);
 
-### Finally we are done
 print $r->render($result);
 
 exit(0);
 
 
 
+
 #### __Private Functons__ ####
 
 sub _create_spec {
-    my ($method_name, $spec_type, $param_name) = @_;    
+    my ($spec_type, $param_name) = @_;    
+
+    my ($is_array) = $param_name =~ s/(\[\])$//g;
+
     $param_name =~ s/_/-/g;
     $param_name =~ s/\[\]//g;
     return unless $param_name =~ /^[\w-]+$/;
-    unless ($uniq_param->{$param_name}) {
-        no strict 'refs';
-        $uniq_param->{$param_name} = &{"Getopt::Lucid::$spec_type"}($param_name);
-        if ($spec_type ne 'Switch') {
-            my $valid_sub =qq[ 
-                    sub {
-                        for (keys \%{\$param_method->{$param_name}}) {
-                            if (\$opt->{seen}{\$_}) {
-                                return 1;
-                            }
-                        }
-                    }
-                ];
-            $uniq_param->{$param_name}->valid( eval $valid_sub );
-        }
-    }
-    $param_method->{$param_name}->{$method_name} = 1;
+
+    my $opt_def = $param_name;
+    $opt_def .= join('','=s',$is_array ? '@' : '') if $spec_type eq 'Param';
+
+    push @opt_defs, $opt_def; 
+    
 }
