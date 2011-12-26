@@ -17,19 +17,12 @@
 use strict;
 use warnings;
 
-use FindBin;
-
-use Log::Handler;
 use Net::Twitter;
 use Config::Any;
 use Any::Renderer;
 use Getopt::Long;
 
-### Define some hashrefs for quick lookups. ###
-my $uniq_param    = {};    # Force unique command line options
-my $param_method  = {};    # map parameters to the methods they belong to
 my $uniq_method   = {};    # keep a list of unique methods
-my $method_params = {};
 
 
 ### Create a Net::Twitter object now so that we have access ###
@@ -49,7 +42,7 @@ my $opt = {
     'output-format' => 'Data::Dumper',
 };
 
-#Option Definitions
+# Option Definitions
 my @opt_defs = (
     'config-file|config_file=s',
     'output-format|output_format:s',
@@ -61,7 +54,7 @@ my @opt_defs = (
 for my $method ( $nt->meta->get_all_methods ) {
     my $mname = $method->name;
     if (
-        !$uniq_param->{$mname} 
+        !$uniq_method->{$mname} 
         && $method->{base_url_method} 
         && $method->name !~ /^_/ 
         && $mname !~ /^[A-Z]+$/
@@ -73,20 +66,20 @@ for my $method ( $nt->meta->get_all_methods ) {
 
 my $requested_method = shift @ARGV;
 
-die unless $uniq_method->{$requested_method};
+die usage() unless $uniq_method->{$requested_method};
 
 my $method = $nt->meta->get_method($requested_method);
+my $required_option = {};
+
+create_spec('Switch', $_) for @{$method->{booleans}};
+create_spec('Param', $_)  for @{$method->{params}};
 
 
-_create_spec('Switch', $_) for @{$method->{booleans}};
-_create_spec('Param', $_)  for @{$method->{params}};
-
-
-### Get and set command line options
+# Get command line options
 GetOptions($opt,@opt_defs);
 
 
-### Process script specific options
+# Process script specific options
 my $r = Any::Renderer->new(delete $opt->{'output-format'});
 
 if (my $config_file = delete $opt->{'config-file'}) {
@@ -106,24 +99,44 @@ if (my $config_file = delete $opt->{'config-file'}) {
 }
 
 
+# Process options for Net::Twitter
 my $run_param = {};
 while (my ($key,$value)  = each(%$opt) ) {
     $key =~ s/-/_/g;
     $run_param->{$key} = $value if $value;
 }
 
-my $result = $nt->$requested_method($run_param);
 
+
+# Run and print 
+my $result = $nt->$requested_method($run_param);
 print $r->render($result);
 
 exit(0);
 
 
 
+sub usage {
 
-#### __Private Functons__ ####
+    my $usage = "\ntwitterctl METHOD [--OPTION]\n";
+    if ($method) {
+        $usage .= "\n Options for $requested_method\n";
+       
+    }
+    else {
+        $usage .= "\n METHOD is one of:\n";
 
-sub _create_spec {
+        foreach my $method (keys %$uniq_method) {
+            $usage .= "    $method\n";
+        }
+    }
+  
+    print $usage;
+    exit(0);
+};
+
+
+sub create_spec {
     my ($spec_type, $param_name) = @_;    
 
     my ($is_array) = $param_name =~ s/(\[\])$//g;
@@ -134,6 +147,8 @@ sub _create_spec {
 
     my $opt_def = $param_name;
     $opt_def .= join('','=s',$is_array ? '@' : '') if $spec_type eq 'Param';
+
+    
 
     push @opt_defs, $opt_def; 
     
